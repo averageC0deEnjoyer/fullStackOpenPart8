@@ -1,0 +1,1 @@
+review graphQL theory
