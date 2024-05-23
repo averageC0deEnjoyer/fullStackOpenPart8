@@ -102,14 +102,16 @@ const typeDefs = `
   type Author {
     name: String!
     born: Int
+    id: ID!
     bookCount: Int!
   }
 
   type Book {
     title: String!
-    published: Int!
+    published: String!
     author: String!
     genres: [String!]
+    id: ID!
   }
 
   type Query {
@@ -125,7 +127,7 @@ const typeDefs = `
     addBook(
       title: String!
       author: String!
-      published: Int!
+      published: String!
       genres: [String!]
       ): Book
     editAuthor(
@@ -149,6 +151,7 @@ const resolvers = {
         return {
           name: author.name,
           born: author.born,
+          id: author.id,
           bookCount: books.filter((book) => book.author === author.name).length,
         };
       }),
