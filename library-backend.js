@@ -82,23 +82,31 @@ const resolvers = {
   Query: {
     authorCount: async () => Author.collection.countDocuments(),
     bookCount: async () => Book.collection.countDocuments(),
-    allBooks: (root, args) => {
-      if (!args.name && !args.genre) return Book.find({});
-      if (args.name) return books.filter((b) => b.author === args.name);
-      if (args.genre) return books.filter((b) => b.genres.includes(args.genre));
+    allBooks: async (root, args) => {
+      if (!args.name && !args.genre) return Book.find({}).populate("author");
+      if (args.name) {
+        const author = await Author.findOne({ name: args.name });
+        const bookList = await Book.find({ author: author.id }).populate(
+          "author"
+        );
+        // console.log(bookList);
+        return bookList;
+      }
+      if (args.genre)
+        return Book.find({ genres: { $in: [args.genre] } }).populate("author");
     },
     allAuthors: async () => Author.find({}),
   },
   Mutation: {
     addBook: async (root, args) => {
       let authorData = await Author.findOne({ name: args.author });
-      console.log(authorData);
+      // console.log(authorData);
       if (!authorData) {
         const newAuthorObj = new Author({ name: args.author });
         authorData = await newAuthorObj.save();
       }
-      console.log(authorData);
-      console.log(authorData.id);
+      // console.log(authorData);
+      // console.log(authorData.id);
 
       const newBookObj = new Book({ ...args, author: authorData.id });
       const newBookObjSaved = await newBookObj.save();
