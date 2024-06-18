@@ -1,6 +1,6 @@
 const { ApolloServer } = require("@apollo/server");
 const { startStandaloneServer } = require("@apollo/server/standalone");
-const { v1: uuid } = require("uuid");
+const { GraphQLError } = require("graphql");
 
 /*
  * Suomi:
@@ -55,6 +55,16 @@ const typeDefs = `
     id: ID!
   }
 
+  type User {
+    username: String!
+    favoriteGenre: String!
+    id: ID!
+  }
+
+  type Token {
+    value: String!
+  }
+
   type Query {
     authorCount: Int!
     bookCount: Int!
@@ -62,6 +72,7 @@ const typeDefs = `
       name: String
       genre: String): [Book!]
     allAuthors: [Author!] 
+    me: User
   }
 
   type Mutation {
@@ -75,6 +86,14 @@ const typeDefs = `
       name: String!
       setBornTo: Int!
     ): Author
+    createUser(
+      username: String!
+      favoriteGenre: String!
+    ): User
+    login(
+      username: String!
+      password: String!
+    ): Token
   }
 `;
 
@@ -100,28 +119,56 @@ const resolvers = {
   Mutation: {
     addBook: async (root, args) => {
       let authorData = await Author.findOne({ name: args.author });
-      // console.log(authorData);
+      console.log(authorData);
       if (!authorData) {
         const newAuthorObj = new Author({ name: args.author });
-        authorData = await newAuthorObj.save();
+        try {
+          authorData = await newAuthorObj.save();
+        } catch (error) {
+          throw new GraphQLError("Saving new author failed", {
+            extensions: {
+              code: "BAD_USER_INPUT",
+              invalidArgs: args.author,
+              error,
+            },
+          });
+        }
       }
+      // console.log("testflow");
       // console.log(authorData);
       // console.log(authorData.id);
 
       const newBookObj = new Book({ ...args, author: authorData.id });
-      const newBookObjSaved = await newBookObj.save();
-      return newBookObjSaved.populate("author");
+      try {
+        await newBookObj.save();
+      } catch (error) {
+        throw new GraphQLError("Saving new book failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.title,
+            error,
+          },
+        });
+      }
+
+      return newBookObj.populate("author");
     },
-    editAuthor: (root, args) => {
-      const currentAuthor = authors.find((a) => a.name === args.name);
-      const updatedAuthor = {
-        ...currentAuthor,
-        born: args.setBornTo,
-      };
-      authors = authors.map((a) =>
-        a.name === updatedAuthor.name ? updatedAuthor : a
-      );
-      return updatedAuthor;
+    editAuthor: async (root, args) => {
+      const currentAuthor = await Author.findOne({ name: args.name });
+      let born = currentAuthor?.born;
+      born = args.setBornTo;
+      try {
+        await currentAuthor.save();
+      } catch (error) {
+        throw new GraphQLError("edit author failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            error,
+          },
+        });
+      }
+      return currentAuthor;
     },
   },
 };
